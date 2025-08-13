@@ -77,7 +77,7 @@ REM Start Redis if REDIS_URL is set
 REM =========================
 if defined REDIS_URL (
     echo === Starting Redis server ===
-    start "" redis-server
+    start "Redis Server" redis-server
     timeout /t 2
 )
 
@@ -85,15 +85,20 @@ REM =========================
 REM Start Django server
 REM =========================
 echo === Starting Django server ===
-start "" "!PYTHON_CMD!" backend\manage.py runserver 0.0.0.0:8000 > logs\django.log 2>&1
+start "Django Server" cmd /k "!PYTHON_CMD! backend\manage.py runserver 0.0.0.0:8000"
 
 REM =========================
 REM Start agent
 REM =========================
 echo === Starting agent ===
 call agent\.venv\Scripts\activate
-start "" "!PYTHON_CMD!" agent\agent.py > logs\agent.log 2>&1
+start "Agent" cmd /k "!PYTHON_CMD! agent\agent.py"
 
-echo === All services started successfully! ===
-echo Press any key to exit...
-pause >nul
+REM =========================
+REM Open frontend in default browser
+REM =========================
+echo === Opening frontend ===
+start "" "%CD%\frontend\index.html"
+
+echo === All services started successfully! Windows will remain open for errors. ===
+pause
