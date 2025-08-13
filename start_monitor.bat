@@ -48,29 +48,44 @@ REM =========================
 if not exist logs mkdir logs
 
 REM =========================
-REM Activate backend venv
+REM Setup backend virtual environment
 REM =========================
-echo === Activating backend virtual environment ===
+if not exist backend\.venv (
+    echo === Creating backend virtual environment ===
+    "!PYTHON_CMD!" -m venv backend\.venv
+)
 call backend\.venv\Scripts\activate
 
 REM =========================
-REM Install requirements
+REM Install backend requirements
 REM =========================
-echo === Installing Python packages ===
+echo === Installing backend Python packages ===
 "!PYTHON_CMD!" -m pip install --upgrade pip
 "!PYTHON_CMD!" -m pip install -r backend\requirements.txt
 
 REM =========================
-REM Apply migrations
+REM Apply migrations and collect static
 REM =========================
 echo === Applying Django migrations ===
 "!PYTHON_CMD!" backend\manage.py migrate
-
-REM =========================
-REM Collect static files
-REM =========================
 echo === Collecting static files ===
 "!PYTHON_CMD!" backend\manage.py collectstatic --noinput
+
+REM =========================
+REM Setup agent virtual environment
+REM =========================
+if not exist agent\.venv (
+    echo === Creating agent virtual environment ===
+    "!PYTHON_CMD!" -m venv agent\.venv
+)
+call agent\.venv\Scripts\activate
+
+REM =========================
+REM Install agent requirements
+REM =========================
+echo === Installing agent Python packages ===
+"!PYTHON_CMD!" -m pip install --upgrade pip
+"!PYTHON_CMD!" -m pip install -r agent\requirements.txt
 
 REM =========================
 REM Start Redis if REDIS_URL is set
@@ -91,7 +106,6 @@ REM =========================
 REM Start agent
 REM =========================
 echo === Starting agent ===
-call agent\.venv\Scripts\activate
 start "Agent" cmd /k "!PYTHON_CMD! agent\agent.py"
 
 REM =========================
