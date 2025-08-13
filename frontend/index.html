@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Process Monitor (Realtime)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#38bdf8; --line:#1f2937; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial; background:var(--bg); color:var(--text); }
+  header { padding:16px 20px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  h1 { font-size:18px; margin:0; color:var(--accent); }
+  .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .seg { display:flex; gap:8px; align-items:center; background:#0b1220; padding:6px 8px; border:1px solid var(--line); border-radius:10px; }
+  select,input,button { background:#0b1220; color:var(--text); border:1px solid var(--line); padding:8px 10px; border-radius:8px; }
+  button { cursor:pointer; }
+  main { max-width:1200px; margin: 16px auto; padding: 0 16px; display:grid; gap:16px; grid-template-columns: 1fr; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .meta { display:flex; gap:16px; font-size:14px; color:var(--muted); margin-bottom:10px; flex-wrap:wrap; }
+  .tree { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+  .row { display:flex; align-items:center; gap:8px; padding:4px 6px; border-radius:8px; }
+  .row:hover { background:#0b1220; }
+  .toggle { width:18px; height:18px; display:inline-grid; place-items:center; border:1px solid #334155; border-radius:4px; cursor:pointer; }
+  .toggle::after { content:"▸"; font-size:12px; }
+  .toggle.open::after { content:"▾"; }
+  .indent { width:18px; }
+  .pid { color:#a5b4fc; }
+  .name { color:#e2e8f0; }
+  .stats { color:#94a3b8; margin-left:auto; font-size:12px; }
+  .footer { margin-top:8px; font-size:13px; color:var(--muted); display:flex; justify-content:space-between; flex-wrap:wrap; }
+  .badge { padding:3px 8px; border:1px solid #334155; border-radius:999px; font-size:12px; color:#cbd5e1; }
+  .empty { color:#94a3b8; padding:12px; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Process Monitor</h1>
+  <div class="controls">
+    <div class="seg">
+      <label for="hostSel">Host</label>
+      <select id="hostSel"></select>
+      <label for="historySel">History</label>
+      <select id="historySel" title="Pick a past snapshot"></select>
+      <button id="liveBtn" title="Switch to realtime">Go Live</button>
+    </div>
+    <div class="seg">
+      <input id="q" placeholder="Search name or PID" />
+      <label>CPU</label><input type="number" id="cpuMin" value="0" min="0" max="100" style="width:70px">–
+      <input type="number" id="cpuMax" value="100" min="0" max="100" style="width:70px">
+      <label>Mem(MB)</label><input type="number" id="memMin" value="0" min="0" style="width:80px">–
+      <input type="number" id="memMax" value="999999" min="0" style="width:90px">
+      <button id="applyBtn">Apply</button>
+      <span id="status" class="badge">Idle</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <div class="meta">
+      <div>Hostname: <strong id="hostname">—</strong></div>
+      <div>Timestamp: <strong id="timestamp">—</strong></div>
+      <div>Total processes: <strong id="count">—</strong></div>
+      <div>Mode: <strong id="mode">Live (WebSocket)</strong></div>
+    </div>
+    <div id="tree" class="tree"></div>
+    <div class="footer">
+      <div>Realtime updates via WebSocket. Falls back to HTTP if WS unavailable.</div>
+      <div><button id="refreshBtn">Refresh Now</button></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Top 5 CPU %</h3>
+      <canvas id="cpuChart" height="220"></canvas>
+    </div>
+    <div class="card">
+      <h3>Top 5 Memory (MB)</h3>
+      <canvas id="memChart" height="220"></canvas>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const API_BASE = localStorage.getItem("API_BASE") || "http://127.0.0.1:8000/api/v1";
+const WS_BASE  = localStorage.getItem("WS_BASE")  || `ws://${location.hostname}:8000/ws`;
+
+const els = {
+  hostSel: document.getElementById('hostSel'),
+  historySel: document.getElementById('historySel'),
+  tree: document.getElementById('tree'),
+  hostname: document.getElementById('hostname'),
+  timestamp: document.getElementById('timestamp'),
+  count: document.getElementById('count'),
+  status: document.getElementById('status'),
+  refreshBtn: document.getElementById('refreshBtn'),
+  q: document.getElementById('q'),
+  cpuMin: document.getElementById('cpuMin'),
+  cpuMax: document.getElementById('cpuMax'),
+  memMin: document.getElementById('memMin'),
+  memMax: document.getElementById('memMax'),
+  applyBtn: document.getElementById('applyBtn'),
+  liveBtn: document.getElementById('liveBtn'),
+  mode: document.getElementById('mode'),
+  cpuChart: document.getElementById('cpuChart'),
+  memChart: document.getElementById('memChart'),
+};
+
+let socket = null;
+let currentSnapshot = null;
+let cpuChart = null;
+let memChart = null;
+
+function setStatus(s){ els.status.textContent = s; }
+async function getJSON(u){ const r = await fetch(u); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+
+async function loadHosts(){
+  setStatus("Loading hosts…");
+  const data = await getJSON(`${API_BASE}/hosts/`);
+  els.hostSel.innerHTML = "";
+  (data.hosts || []).forEach(h => {
+    const o = document.createElement('option'); o.value = h; o.textContent = h; els.hostSel.appendChild(o);
+  });
+  setStatus("Idle");
+}
+
+async function loadHistory(host, limit=20){
+  const hist = await getJSON(`${API_BASE}/process-snapshots/history/?hostname=${encodeURIComponent(host)}&limit=${limit}`);
+  els.historySel.innerHTML = "";
+  hist.forEach(snap => {
+    const o = document.createElement('option');
+    o.value = snap.id;
+    o.textContent = `${new Date(snap.created_at).toLocaleString()} (#${snap.id})`;
+    els.historySel.appendChild(o);
+  });
+  return hist;
+}
+
+function filterProcesses(list){
+  const q = els.q.value.trim().toLowerCase();
+  const cmin = parseFloat(els.cpuMin.value) || 0, cmax = parseFloat(els.cpuMax.value) || 100;
+  const mmin = parseFloat(els.memMin.value) || 0, mmax = parseFloat(els.memMax.value) || Number.MAX_SAFE_INTEGER;
+  return list.filter(p=>{
+    const matchQ = !q || p.name.toLowerCase().includes(q) || String(p.pid).includes(q);
+    const cpu = (p.cpu_percent ?? 0);
+    const mem = (p.memory_mb ?? 0);
+    return matchQ && cpu>=cmin && cpu<=cmax && mem>=mmin && mem<=mmax;
+  });
+}
+
+function renderTree(processes){
+  const byPid = new Map(), children = new Map();
+  processes.forEach(p=>{ byPid.set(p.pid,p); if(!children.has(p.ppid)) children.set(p.ppid,[]); children.get(p.ppid).push(p); });
+  const roots = (children.get(0) || []).concat(processes.filter(p => !byPid.has(p.ppid) && p.ppid !== 0));
+  function row(p, level){
+    const hasKids = (children.get(p.pid) || []).length>0;
+    const line = document.createElement('div'); line.className='row';
+    for(let i=0;i<level;i++){ const ind=document.createElement('span'); ind.className='indent'; line.appendChild(ind); }
+    let toggle=null;
+    if(hasKids){ toggle=document.createElement('span'); toggle.className='toggle'; line.appendChild(toggle); }
+    else{ const ind=document.createElement('span'); ind.className='indent'; line.appendChild(ind); }
+    const name=document.createElement('span'); name.className='name'; name.textContent=p.name;
+    const pid=document.createElement('span'); pid.className='pid'; pid.textContent=` (PID ${p.pid}${p.ppid?`, PPID ${p.ppid}`:''})`;
+    const stats=document.createElement('span'); stats.className='stats';
+    const cpu=(p.cpu_percent??0).toFixed(1), mem=(p.memory_mb??0).toFixed(1);
+    stats.textContent=`CPU ${cpu}% • ${mem} MB`;
+    line.appendChild(name); line.appendChild(pid); line.appendChild(stats);
+    const container=document.createElement('div'); container.appendChild(line);
+    if(hasKids){
+      const wrap=document.createElement('div'); wrap.style.display='none';
+      (children.get(p.pid)||[]).forEach(c=>wrap.appendChild(row(c, level+1)));
+      container.appendChild(wrap);
+      toggle.addEventListener('click', ()=>{
+        const open = wrap.style.display==='block';
+        wrap.style.display=open?'none':'block';
+        toggle.classList.toggle('open', !open);
+      });
+    }
+    return container;
+  }
+  const out=document.createElement('div');
+  if(roots.length===0){ const e=document.createElement('div'); e.className='empty'; e.textContent='No processes found.'; out.appendChild(e); }
+  else { roots.forEach(r=>out.appendChild(row(r,0))); }
+  return out;
+}
+
+function drawCharts(processes){
+  const topCPU=[...processes].sort((a,b)=>(b.cpu_percent??0)-(a.cpu_percent??0)).slice(0,5);
+  const topMem=[...processes].sort((a,b)=>(b.memory_mb??0)-(a.memory_mb??0)).slice(0,5);
+  const cpuCtx=els.cpuChart.getContext('2d');
+  const memCtx=els.memChart.getContext('2d');
+  if(cpuChart) cpuChart.destroy();
+  if(memChart) memChart.destroy();
+  cpuChart=new Chart(cpuCtx,{type:'bar',data:{labels:topCPU.map(p=>`${p.name} (${p.pid})`),datasets:[{label:'CPU %',data:topCPU.map(p=>p.cpu_percent??0)}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+  memChart=new Chart(memCtx,{type:'bar',data:{labels:topMem.map(p=>`${p.name} (${p.pid})`),datasets:[{label:'Memory (MB)',data:topMem.map(p=>p.memory_mb??0)}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+}
+
+function renderSnapshot(snap){
+  currentSnapshot = snap;
+  els.hostname.textContent = snap.hostname;
+  els.timestamp.textContent = new Date(snap.created_at).toLocaleString();
+  const filtered = filterProcesses(snap.processes || []);
+  els.count.textContent = filtered.length;
+  els.tree.innerHTML = "";
+  els.tree.appendChild(renderTree(filtered));
+  drawCharts(filtered);
+}
+
+async function loadLatestHTTP(host){
+  const data = await getJSON(`${API_BASE}/process-snapshots/latest/?hostname=${encodeURIComponent(host)}`);
+  renderSnapshot(data);
+}
+
+async function goLive(host){
+  closeWS();
+  els.mode.textContent = "Live (WebSocket)";
+  const url = `${WS_BASE}/processes/${encodeURIComponent(host)}/`;
+  try {
+    socket = new WebSocket(url);
+    socket.onopen = ()=> setStatus("Live");
+    socket.onclose = ()=> { setStatus("WS closed; falling back to HTTP"); els.mode.textContent="HTTP Polling"; };
+    socket.onerror = ()=> { setStatus("WS error; HTTP fallback"); els.mode.textContent="HTTP Polling"; };
+    socket.onmessage = (e)=> {
+      try { renderSnapshot(JSON.parse(e.data)); }
+      catch(err){ console.error(err); }
+    };
+  } catch (e) {
+    setStatus("WS init failed; HTTP fallback");
+    els.mode.textContent="HTTP Polling";
+  }
+}
+
+function closeWS(){ if(socket){ try{ socket.close(); }catch(e){} socket=null; } }
+
+async function refreshHistoryUI(){
+  const host = els.hostSel.value;
+  if(!host) return;
+  const snaps = await loadHistory(host, 20);
+  if(snaps.length){ els.historySel.value = snaps[0].id; }
+}
+
+els.refreshBtn.addEventListener('click', async ()=>{
+  els.mode.textContent === "HTTP Polling"
+    ? loadLatestHTTP(els.hostSel.value)
+    : setStatus("Waiting for next live update…");
+});
+els.applyBtn.addEventListener('click', ()=>{ if(currentSnapshot) renderSnapshot(currentSnapshot); });
+els.hostSel.addEventListener('change', async ()=>{
+  closeWS();
+  await refreshHistoryUI();
+  await loadLatestHTTP(els.hostSel.value);
+  await goLive(els.hostSel.value);
+});
+els.historySel.addEventListener('change', async ()=>{
+  const host = els.hostSel.value;
+  const snaps = await getJSON(`${API_BASE}/process-snapshots/history/?hostname=${encodeURIComponent(host)}&limit=50`);
+  const chosen = snaps.find(s=> String(s.id)===String(els.historySel.value));
+  if(chosen){ closeWS(); els.mode.textContent="History (static)"; renderSnapshot(chosen); }
+});
+els.liveBtn.addEventListener('click', async ()=>{ await goLive(els.hostSel.value); });
+
+(async function init(){
+  await loadHosts();
+  if(els.hostSel.options.length>0){
+    els.hostSel.selectedIndex=0;
+    await refreshHistoryUI();
+    await loadLatestHTTP(els.hostSel.value);
+    await goLive(els.hostSel.value);
+  }
+})();
+</script>
+</body>
+</html>
