@@ -50,7 +50,7 @@ The system consists of:
 1. Clone the repo:
 
    ```bash
-   git clone https://github.com/yourusername/process-monitor.git
+   git clone https://github.com/avinashanshu18/process-monitoring-agent
    cd process-monitor/backend
    ```
 
@@ -66,6 +66,13 @@ The system consists of:
    ```bash
    pip install -r requirements.txt
    ```
+
+   ## start_monitor.bat – Process Monitoring Agent Starter
+   start_monitor.bat is a simple Windows batch script to start 
+   the Process Monitoring Agent. The agent collects system process 
+   information (PID, CPU %, memory usage, parent-child relationships) 
+   and sends it start_monitor.bat It allows the agent to be run without 
+   installation double-click it to start monitoring.
 
 4. Create `.env` file in root folder with content (see `.env.example`):
 
