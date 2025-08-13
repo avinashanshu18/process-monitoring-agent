@@ -1,100 +1,88 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM ===========================
-REM Load environment variables from .env
-REM ===========================
-if exist .env (
-    for /f "usebackq tokens=1,* delims==" %%i in (.env) do (
-        set %%i=%%j
+REM -----------------------------
+REM 1. Detect Python
+REM -----------------------------
+echo === Checking for Python ===
+where python >nul 2>nul
+if %errorlevel% neq 0 (
+    echo Python not found in PATH.
+    echo Attempting to use py launcher...
+    where py >nul 2>nul
+    if %errorlevel% neq 0 (
+        echo Python is not installed. Please install Python 3.10+ and ensure it is added to PATH.
+        pause
+        exit /b
+    ) else (
+        set PYTHON_CMD=py
     )
 ) else (
-    echo .env file not found!
+    set PYTHON_CMD=python
 )
 
-REM ===========================
-REM Create logs folder
-REM ===========================
-if not exist logs mkdir logs
+echo Using Python command: %PYTHON_CMD%
 
-REM ===========================
-REM Detect Python
-REM ===========================
-where python >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Python not found in PATH! Please install Python 3.12+ and add it to PATH.
-    pause
-    exit /b
-) else (
-    echo Python found.
+REM -----------------------------
+REM 2. Create virtual environments
+REM -----------------------------
+if not exist backend\.venv (
+    echo === Creating backend virtual environment ===
+    %PYTHON_CMD% -m venv backend\.venv
 )
 
-REM ===========================
-REM Activate backend virtual environment
-REM ===========================
-if exist backend\.venv\Scripts\activate (
-    call backend\.venv\Scripts\activate
-) else (
-    echo Creating backend virtual environment...
-    python -m venv backend\.venv
-    call backend\.venv\Scripts\activate
-    pip install --upgrade pip
-    pip install -r backend\requirements.txt
+if not exist agent\.venv (
+    echo === Creating agent virtual environment ===
+    %PYTHON_CMD% -m venv agent\.venv
 )
 
-REM ===========================
-REM Apply Django migrations
-REM ===========================
-echo Applying migrations...
+REM -----------------------------
+REM 3. Activate backend and install packages
+REM -----------------------------
+echo === Activating backend venv ===
+call backend\.venv\Scripts\activate
+
+echo === Installing backend requirements ===
+pip install --upgrade pip
+pip install -r backend\requirements.txt
+
+echo === Applying migrations ===
 python backend\manage.py migrate
 
-REM ===========================
-REM Collect static files
-REM ===========================
-echo Collecting static files...
+echo === Collecting static files ===
 python backend\manage.py collectstatic --noinput
 
-REM ===========================
-REM Start Redis if REDIS_URL is set
-REM ===========================
-if defined REDIS_URL (
-    where redis-server >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo Redis server not found! Skipping Redis. WebSockets will use in-memory.
-    ) else (
-        echo Starting Redis server...
-        start "" redis-server
-        timeout /t 2
-    )
+REM -----------------------------
+REM 4. Start Redis if installed
+REM -----------------------------
+where redis-server >nul 2>nul
+if %errorlevel% eq 0 (
+    echo === Starting Redis server ===
+    start "" redis-server
+    timeout /t 2
 ) else (
-    echo REDIS_URL not set. Using in-memory channel layer.
+    echo Redis not found. WebSocket will use in-memory layer.
 )
 
-REM ===========================
-REM Start Django server
-REM ===========================
-echo Starting Django server...
-start "" python backend\manage.py runserver 0.0.0.0:8000 > logs\django.log 2>&1
+REM -----------------------------
+REM 5. Start Django server
+REM -----------------------------
+echo === Starting Django server ===
+start "" %PYTHON_CMD% backend\manage.py runserver 0.0.0.0:8000
 
-REM ===========================
-REM Activate agent virtual environment
-REM ===========================
-if exist agent\.venv\Scripts\activate (
-    call agent\.venv\Scripts\activate
-) else (
-    echo Creating agent virtual environment...
-    python -m venv agent\.venv
-    call agent\.venv\Scripts\activate
-    pip install --upgrade pip
-    pip install -r agent\requirements.txt
-)
+REM -----------------------------
+REM 6. Start agent
+REM -----------------------------
+echo === Activating agent venv ===
+call agent\.venv\Scripts\activate
+echo === Starting agent ===
+start "" %PYTHON_CMD% agent\agent.py
 
-REM ===========================
-REM Start agent
-REM ===========================
-echo Starting Agent...
-start "" python agent\agent.py > logs\agent.log 2>&1
+REM -----------------------------
+REM 7. Open frontend in default browser
+REM -----------------------------
+echo === Opening frontend in browser ===
+start "" "http://127.0.0.1:8000/static/index.html"
 
-echo ===========================
-echo All services started successfully!
+echo === All services started successfully! ===
 pause
