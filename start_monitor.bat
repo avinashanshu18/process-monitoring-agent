@@ -4,13 +4,12 @@ setlocal enabledelayedexpansion
 REM ===========================
 REM Load environment variables from .env
 REM ===========================
-if not exist ".env" (
-    echo ERROR: .env file not found in root directory!
-    pause
-    exit /b 1
-)
-for /f "usebackq tokens=1,2 delims==" %%i in (.env) do (
-    set %%i=%%j
+if exist .env (
+    for /f "usebackq tokens=1,* delims==" %%i in (.env) do (
+        set %%i=%%j
+    )
+) else (
+    echo .env file not found!
 )
 
 REM ===========================
@@ -19,32 +18,56 @@ REM ===========================
 if not exist logs mkdir logs
 
 REM ===========================
-REM Backend setup
+REM Detect Python
 REM ===========================
-echo === Setting up Backend ===
-if not exist backend\.venv (
+where python >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Python not found in PATH! Please install Python 3.12+ and add it to PATH.
+    pause
+    exit /b
+) else (
+    echo Python found.
+)
+
+REM ===========================
+REM Activate backend virtual environment
+REM ===========================
+if exist backend\.venv\Scripts\activate (
+    call backend\.venv\Scripts\activate
+) else (
     echo Creating backend virtual environment...
     python -m venv backend\.venv
+    call backend\.venv\Scripts\activate
+    pip install --upgrade pip
+    pip install -r backend\requirements.txt
 )
-call backend\.venv\Scripts\activate
 
-echo Installing backend dependencies...
-pip install --upgrade pip
-pip install -r backend\requirements.txt
-
-echo Applying Django migrations...
+REM ===========================
+REM Apply Django migrations
+REM ===========================
+echo Applying migrations...
 python backend\manage.py migrate
 
+REM ===========================
+REM Collect static files
+REM ===========================
 echo Collecting static files...
 python backend\manage.py collectstatic --noinput
 
 REM ===========================
-REM Redis (optional)
+REM Start Redis if REDIS_URL is set
 REM ===========================
 if defined REDIS_URL (
-    echo Starting Redis server...
-    start "" redis-server
-    timeout /t 2
+    where redis-server >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo Redis server not found! Skipping Redis. WebSockets will use in-memory.
+    ) else (
+        echo Starting Redis server...
+        start "" redis-server
+        timeout /t 2
+    )
+) else (
+    echo REDIS_URL not set. Using in-memory channel layer.
 )
 
 REM ===========================
@@ -54,27 +77,24 @@ echo Starting Django server...
 start "" python backend\manage.py runserver 0.0.0.0:8000 > logs\django.log 2>&1
 
 REM ===========================
-REM Agent setup
+REM Activate agent virtual environment
 REM ===========================
-echo === Setting up Agent ===
-if not exist agent\.venv (
+if exist agent\.venv\Scripts\activate (
+    call agent\.venv\Scripts\activate
+) else (
     echo Creating agent virtual environment...
     python -m venv agent\.venv
+    call agent\.venv\Scripts\activate
+    pip install --upgrade pip
+    pip install -r agent\requirements.txt
 )
-call agent\.venv\Scripts\activate
 
-echo Installing agent dependencies...
-pip install --upgrade pip
-pip install -r agent\requirements.txt
-
+REM ===========================
+REM Start agent
+REM ===========================
 echo Starting Agent...
 start "" python agent\agent.py > logs\agent.log 2>&1
 
-REM ===========================
-REM Open frontend in default browser
-REM ===========================
-echo Opening frontend...
-start "" frontend\index.html
-
-echo === All services started successfully! Logs in logs\ folder ===
+echo ===========================
+echo All services started successfully!
 pause
