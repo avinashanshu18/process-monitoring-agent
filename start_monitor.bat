@@ -18,7 +18,7 @@ for /f "delims=" %%i in ('where py 2^>nul') do (
     goto python_found
 )
 
-REM If still not found, prompt user for Python path
+REM Prompt user if still not found
 echo Python not found in PATH.
 set /p "PYTHON_CMD=Enter full path to python.exe: "
 if not exist "!PYTHON_CMD!" (
@@ -30,11 +30,9 @@ if not exist "!PYTHON_CMD!" (
 
 :python_found
 echo Using Python at: !PYTHON_CMD!
-set PATH=%~dp0;%PATH%
-set PATH=%PYTHON_CMD%;%PATH%
 
 REM =========================
-REM Load environment variables from .env
+REM Load environment variables from backend/.env if exists
 REM =========================
 if exist backend\.env (
     for /f "usebackq tokens=1,2 delims==" %%i in (backend\.env) do (
@@ -64,7 +62,7 @@ echo === Installing backend Python packages ===
 "!PYTHON_CMD!" -m pip install -r backend\requirements.txt
 
 REM =========================
-REM Apply migrations and collect static
+REM Apply migrations and collect static files
 REM =========================
 echo === Applying Django migrations ===
 "!PYTHON_CMD!" backend\manage.py migrate
@@ -88,11 +86,17 @@ echo === Installing agent Python packages ===
 "!PYTHON_CMD!" -m pip install -r agent\requirements.txt
 
 REM =========================
-REM Start Redis if REDIS_URL is set
+REM Download and start Redis if REDIS_URL set
 REM =========================
 if defined REDIS_URL (
+    if not exist redis (
+        echo === Downloading portable Redis for Windows ===
+        powershell -Command "Invoke-WebRequest -Uri https://github.com/tporadowski/redis/releases/download/v7.0.12.1/Redis-x64-7.0.12.1.zip -OutFile redis.zip"
+        echo === Extracting Redis ===
+        powershell -Command "Expand-Archive redis.zip -DestinationPath redis"
+    )
     echo === Starting Redis server ===
-    start "Redis Server" redis-server
+    start "Redis Server" cmd /k "%CD%\redis\Redis-x64-7.0.12.1\redis-server.exe"
     timeout /t 2
 )
 
@@ -100,13 +104,13 @@ REM =========================
 REM Start Django server
 REM =========================
 echo === Starting Django server ===
-start "Django Server" cmd /k "!PYTHON_CMD! backend\manage.py runserver 0.0.0.0:8000"
+start "Django Server" cmd /k "call backend\.venv\Scripts\activate && !PYTHON_CMD! backend\manage.py runserver 0.0.0.0:8000"
 
 REM =========================
 REM Start agent
 REM =========================
 echo === Starting agent ===
-start "Agent" cmd /k "!PYTHON_CMD! agent\agent.py"
+start "Agent" cmd /k "call agent\.venv\Scripts\activate && !PYTHON_CMD! agent\agent.py"
 
 REM =========================
 REM Open frontend in default browser

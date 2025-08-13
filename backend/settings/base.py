@@ -75,4 +75,12 @@ else:
         "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
     }
 
+
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = "/static/"
+
+# Add this line for Docker/production
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
