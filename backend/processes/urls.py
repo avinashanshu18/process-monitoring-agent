@@ -1,16 +1,40 @@
-from django.urls import path
-from .views import (
-    IngestSnapshotView,
-    LatestSnapshotView,
-    HostsView,
-    SnapshotListView,
-    RotateHostKeyView
-)
+# from django.urls import path
+# from .views import (
+#     IngestSnapshotView,
+#     LatestSnapshotView,
+#     HostsView,
+#     SnapshotListView,
+#     RotateHostKeyView
+# )
+
+# urlpatterns = [
+#     path("process-snapshots/", IngestSnapshotView.as_view(), name="ingest"),
+#     path("process-snapshots/latest/", LatestSnapshotView.as_view(), name="latest"),
+#     path("hosts/", HostsView.as_view(), name="hosts"),
+#     path("hosts/rotate-key/", RotateHostKeyView.as_view(), name="rotate-key"),
+#     path("process-snapshots/history/", SnapshotListView.as_view(), name="history"),
+# ]
+
+
+
+"""
+URL Configuration for Processes App
+"""
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
+from .views import HostViewSet, SnapshotViewSet, ProcessViewSet, TaskViewSet
+
+# Router for ViewSets
+router = DefaultRouter()
+router.register(r'hosts', HostViewSet, basename='host')
+router.register(r'snapshots', SnapshotViewSet, basename='snapshot')
+router.register(r'processes', ProcessViewSet, basename='process')
+router.register(r'tasks', TaskViewSet, basename='task')
+
+app_name = 'processes'
 
 urlpatterns = [
-    path("process-snapshots/", IngestSnapshotView.as_view(), name="ingest"),
-    path("process-snapshots/latest/", LatestSnapshotView.as_view(), name="latest"),
-    path("hosts/", HostsView.as_view(), name="hosts"),
-    path("hosts/rotate-key/", RotateHostKeyView.as_view(), name="rotate-key"),
-    path("process-snapshots/history/", SnapshotListView.as_view(), name="history"),
+    # ViewSet routes
+    path('', include(router.urls)),
 ]
