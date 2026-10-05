@@ -1,0 +1,7 @@
+{
+  "endpoint": "http://127.0.0.1:8001/api/v1/process-snapshots/",
+  "api_key": "2ca02ff6e2731d578a06adec91e800dbb36db92283f4416fbb434db46a103240",
+  "agent_id": "27121faad0a4f32a5edef0606d17fcf5",
+  "device_type": "desktop",
+  "hostname_override": ""
+}

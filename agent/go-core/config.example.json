@@ -1,0 +1,12 @@
+{
+  "endpoint": "http://127.0.0.1:8001/api/v1/process-snapshots/",
+  "api_key": "replace-with-your-host-or-onboarding-key",
+  "agent_id": "",
+  "device_type": "desktop",
+  "hostname_override": "",
+  "interval_seconds": 60,
+  "release_manifest_url": "http://127.0.0.1:3001/downloads/release-manifest.json",
+  "release_channel": "stable",
+  "auto_update": true,
+  "deep_collector_spool_dir": "./.hostlens-deep-collectors"
+}

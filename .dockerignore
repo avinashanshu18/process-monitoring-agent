@@ -1,0 +1,17 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+.env
+backend/db.sqlite3
+frontend/process-monitor/.next
+frontend/process-monitor/node_modules
+agent/.venv
+agent/build
+agent/dist
+staticfiles
+media

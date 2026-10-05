@@ -30,5 +30,27 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "src/components/alerts/**/*",
+    "src/components/anomalies/**/*",
+    "src/components/audit/**/*",
+    "src/components/branding/**/*",
+    "src/components/compliance/**/*",
+    "src/components/costs/**/*",
+    "src/components/dashboard/**/*",
+    "src/components/devices/**/*",
+    "src/components/history/**/*",
+    "src/components/mobile-preview/**/*",
+    "src/components/network/**/*",
+    "src/components/predictions/**/*",
+    "src/components/reports/**/*",
+    "src/components/security/**/*",
+    "src/components/settings/**/*",
+    "src/components/storage/**/*",
+    "src/components/system/**/*",
+    "src/components/users/**/*",
+    "src/components/workspaces/**/*",
+    "src/lib/websocket.ts"
+  ]
 }

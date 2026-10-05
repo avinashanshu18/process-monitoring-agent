@@ -5,10 +5,10 @@ import { ChevronRight, ChevronDown, Cpu, HardDrive, Server } from "lucide-react"
 
 interface Process {
   pid: number;
-  ppid: number;
+  ppid: number | null;
   name: string;
-  cpu_percent?: number;
-  memory_mb?: number;
+  cpu_percent?: number | null;
+  memory_mb?: number | null;
 }
 
 interface ProcessTreeProps {
@@ -67,7 +67,7 @@ function ProcessRow({ process }: { process: Process }) {
         {/* Process Name */}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-white truncate">{process.name}</p>
-          {process.ppid !== 0 && (
+          {process.ppid && process.ppid !== 0 && (
             <p className="text-xs text-gray-500">Parent: {process.ppid}</p>
           )}
         </div>

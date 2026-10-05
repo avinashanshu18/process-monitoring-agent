@@ -1,202 +1,263 @@
+# HostLens
 
-# Process Monitoring Agent with Django Backend
+Responsive web SaaS MVP for personal security and device visibility. The product ships a Go core agent for desktop and server devices, a Django API, and a Next.js workspace focused on:
 
-## Overview
+- device registration and per-device API keys
+- live process snapshots
+- recent snapshot history
+- CPU, memory, and disk summaries
+- alerting for suspicious, unknown, or high-usage processes
+- offline/stale host detection with background health checks
+- notification delivery over email, Slack, and generic webhooks
+- saved checks, patch posture, mobile compliance checks, and live query
+- queued remediation actions for refresh, diagnostics, process termination, and live query
 
-This project is a system to monitor running processes on a Windows machine (or any OS), collect detailed process data, and display it through a Django backend with an interactive frontend UI.  
-The system consists of:
+The current product strategy is:
 
-- **Agent**: A standalone Python executable that collects process info and sends it to the backend REST API.  
-- **Backend**: Django REST API server storing data in SQLite and serving it via authenticated endpoints.  
-- **Frontend**: Web UI showing process hierarchy with expandable subprocesses, real-time updates, filters, and visualizations.
+- web app first for signup, billing, onboarding, and device review
+- native mobile companion later for alert response and quick status checks
+- deep desktop visibility on macOS, Windows, and Linux
+- limited Android telemetry through native mobile collection later
+- iPhone companion behavior instead of false full-device parity
 
----
+## Stack
 
-## Features
+- Backend: Django, Django REST Framework, Channels, Whitenoise
+- Frontend: Next.js 16, React 19, Tailwind CSS
+- Desktop and server agent: Go core agent
+- Legacy fallback agent: Python + psutil
+- Production services: PostgreSQL and Redis
 
-- Collects process name, PID, CPU & memory usage, parent-child relations, and hostname  
-- Agent authenticates with per-host API keys  
-- Stores process snapshots and history  
-- REST API endpoints for ingesting data and querying snapshots  
-- WebSocket support for real-time updates (via Django Channels)  
-- Interactive frontend with expandable process trees, filtering, search, and charts  
-- Easy deployment with environment-based settings using `.env` files  
+## Local Development
 
----
+1. Copy the environment file and fill in real keys:
 
-## Tech Stack
-
-- Python 3.13+  
-- Django 4.x + Django REST Framework  
-- Django Channels for WebSockets  
-- SQLite (dev) / PostgreSQL (prod)  
-- psutil for process info (agent)  
-- Requests (agent HTTP client)  
-- JavaScript, HTML, CSS (frontend)  
-- PyInstaller (to build agent EXE for Windows)  
-
----
-
-## Setup Instructions
-
-### Prerequisites
-
-- Python 3.13+ installed  
-- Git installed  
-- Node.js and npm (if frontend needs build tools)  
-
-### Backend Setup
-
-1. Clone the repo:
-
-   ```bash
-   git clone https://github.com/avinashanshu18/process-monitoring-agent
-   cd process-monitor/backend
-   ```
-
-2. Create and activate virtualenv:
-
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   ```
-
-3. Install requirements:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-   ## start_monitor.bat – Process Monitoring Agent Starter
-   start_monitor.bat is a simple Windows batch script to start 
-   the Process Monitoring Agent. The agent collects system process 
-   information (PID, CPU %, memory usage, parent-child relationships) 
-   and sends it start_monitor.bat It allows the agent to be run without 
-   installation double-click it to start monitoring.
-
-4. Create `.env` file in root folder with content (see `.env.example`):
-
-   ```
-   ENVIRONMENT=dev
-   DJANGO_SECRET_KEY=your_secret_key_here
-   PROC_MONITOR_API_KEY=your_api_key_here
-   SUPER_ADMIN_KEY=your_super_admin_key_here
-   ```
-
-5. Run migrations:
-
-   ```bash
-   python manage.py migrate
-   ```
-
-6. Run development server:
-
-   ```bash
-   python manage.py runserver
-   ```
-
----
-
-### Agent Setup
-
-1. Navigate to the `agent` folder:
-
-   ```bash
-   cd ../agent
-   ```
-
-2. Create and activate virtualenv:
-
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   ```
-
-3. Install requirements:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Configure `config.ini` with your backend endpoint and API key, or use environment variables `PROC_ENDPOINT` and `PROC_API_KEY`.
-
-5. Run agent (on macOS/Linux) for testing:
-
-   ```bash
-   python agent.py
-   ```
-
-6. To build Windows EXE (on Windows machine):
-
-   ```bash
-   pyinstaller --onefile agent.py
-   ```
-
----
-
-### Frontend
-
-- The frontend is a simple HTML/JS file located in `/frontend/index.html`.  
-- Open it in your browser and configure the API endpoint URL inside the JavaScript as needed.
-
----
-
-## API Endpoints
-
-| Method | URL                                                           | Description                  | Authentication             |
-|--------|---------------------------------------------------------------|------------------------------|----------------------------|
-| POST   | `/api/v1/process-snapshots/`                                  | Ingest process snapshot data | Per-host API key in header |
-| GET    | `/api/v1/process-snapshots/latest/?hostname=<host>`           | Get latest snapshot for host | None                       |
-| GET    | `/api/v1/process-snapshots/history/?hostname=<host>&limit=10` | Get historical snapshots     | None                       |
-| GET    | `/api/v1/hosts/`                                              | List all hostnames           | None                       |
-| POST   | `/api/v1/hosts/rotate-key/`                                   | Rotate API key for host      | Admin key in header        |
-
----
-
-## Environment Variables
-
-| Variable               | Description                            | Example                                           |
-|------------------------|----------------------------------------|---------------------------------------------------|
-| `ENVIRONMENT`          | Use `dev` or `prod` to select settings | `prod`                                            |
-| `DJANGO_SECRET_KEY`    | Django secret key                      | `your-very-secret-key`                            |
-| `PROC_MONITOR_API_KEY` | Global API key for agent onboarding    | `supersecretkey`                                  |
-| `SUPER_ADMIN_KEY`      | Admin key for rotating host API keys   | `adminsecretkey`                                  |
-| `PROC_ENDPOINT`        | Agent backend API URL override         | `http://localhost:8000/api/v1/process-snapshots/` |
-| `PROC_API_KEY`         | Agent API key override                 | `your-host-api-key`                               |
-
----
-
-## Project Structure
-
-```
-process-monitor/
-├── agent/               # Python agent code and config
-├── backend/             # Django backend code
-│   ├── processes/       # Django app
-│   ├── procmon/         # Django project settings
-│   └── requirements.txt
-├── frontend/            # Frontend UI (static HTML/JS)
-├── .env.example         # Environment variables example
-├── README.md            # This file
+```bash
+cp .env.example .env
 ```
 
----
+2. Install backend dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+```
+
+3. Run backend migrations:
+
+```bash
+cd backend
+python manage.py migrate
+```
+
+4. Install frontend dependencies:
+
+```bash
+cd ../frontend/process-monitor
+npm install
+```
+
+5. Start the backend:
+
+```bash
+cd /Users/avinash/Desktop/process-monitoring-agent-repo/backend
+python manage.py runserver 127.0.0.1:8001
+```
+
+6. Start the frontend:
+
+```bash
+cd /Users/avinash/Desktop/process-monitoring-agent-repo/frontend/process-monitor
+HOSTNAME=127.0.0.1 PORT=3001 PROCESS_MONITOR_API_ORIGIN=http://127.0.0.1:8001 npm run start
+```
+
+7. Start the background host health monitor:
+
+```bash
+cd /Users/avinash/Desktop/process-monitoring-agent-repo/backend
+python manage.py run_host_health_monitor --interval 60
+```
+
+8. Configure the Go core agent:
+
+- use [config.example.json](/Users/avinash/Desktop/process-monitoring-agent-repo/agent/go-core/config.example.json) as the starting point
+- set `endpoint`, `api_key`, and the desired `device_type`
+- keep `agent_id` blank on the first run if you want HostLens to generate it
+- keep `interval_seconds` at `60` for normal device monitoring unless you need faster ingest
+- set `deep_collector_spool_dir` if you want privileged helper sidecars to feed the Go agent
+
+9. Run the Go core agent:
+
+```bash
+cd /Users/avinash/Desktop/process-monitoring-agent-repo/agent/go-core
+go mod tidy
+go run ./cmd/hostlens-agent
+```
+
+10. Claim the device in the web app:
+
+- sign up at [http://127.0.0.1:3001/signup](http://127.0.0.1:3001/signup)
+- open [http://127.0.0.1:3001/setup](http://127.0.0.1:3001/setup)
+- copy the `agent_id` from `agent/go-core/config.json`
+- copy the issued host API key from the same config after the first successful upload
+- give the device a buyer-friendly name such as `Founder MacBook Pro`
+
+Legacy Python fallback remains available at:
+
+```bash
+cd /Users/avinash/Desktop/process-monitoring-agent-repo
+python3 agent/agent.py
+```
+
+The web workspace will be available at [http://127.0.0.1:3001](http://127.0.0.1:3001).
+
+## Notifications and Offline Detection
+
+HostLens now supports:
+
+- persistent alert lifecycle records
+- background host freshness checks
+- per-account notification preferences
+- delivery history for email, Slack, and webhooks
+
+Relevant environment variables:
+
+- `HOSTLENS_OFFLINE_WARNING_SECONDS`
+- `HOSTLENS_OFFLINE_CRITICAL_SECONDS`
+- `HOSTLENS_NOTIFICATION_TIMEOUT_SECONDS`
+- `HOSTLENS_NOTIFICATION_MAX_RETRIES`
+- `HOSTLENS_NOTIFICATION_BACKOFF_SECONDS`
+- `HOSTLENS_NOTIFICATION_RETRYABLE_STATUS_CODES`
+- `HOSTLENS_WEBHOOK_SIGNING_SECRET`
+- `EMAIL_BACKEND`
+- `EMAIL_HOST`
+- `EMAIL_PORT`
+- `EMAIL_HOST_USER`
+- `EMAIL_HOST_PASSWORD`
+- `EMAIL_USE_TLS`
+- `DEFAULT_FROM_EMAIL`
+
+Useful commands:
+
+```bash
+cd /Users/avinash/Desktop/process-monitoring-agent-repo/backend
+python manage.py check_host_health
+python manage.py run_host_health_monitor --interval 60
+python manage.py retry_notification_deliveries --limit 25
+```
+
+## Production Agent Packaging
+
+The Go agent now has first-party install assets for the main desktop and server rollout paths:
+
+- macOS `launchd`: [agent/go-core/deploy/macos/com.hostlens.agent.plist](/Users/avinash/Desktop/process-monitoring-agent-repo/agent/go-core/deploy/macos/com.hostlens.agent.plist)
+- Linux `systemd`: [agent/go-core/deploy/linux/hostlens-agent.service](/Users/avinash/Desktop/process-monitoring-agent-repo/agent/go-core/deploy/linux/hostlens-agent.service)
+- Windows rollout guide: [agent/go-core/deploy/windows/README.md](/Users/avinash/Desktop/process-monitoring-agent-repo/agent/go-core/deploy/windows/README.md)
+- macOS installer: [agent/go-core/deploy/macos/install.sh](/Users/avinash/Desktop/process-monitoring-agent-repo/agent/go-core/deploy/macos/install.sh)
+- Linux installer: [agent/go-core/deploy/linux/install.sh](/Users/avinash/Desktop/process-monitoring-agent-repo/agent/go-core/deploy/linux/install.sh)
+- Windows installer: [agent/go-core/deploy/windows/install.ps1](/Users/avinash/Desktop/process-monitoring-agent-repo/agent/go-core/deploy/windows/install.ps1)
+
+The install page serves downloadable agent binaries from `frontend/process-monitor/public/downloads`.
+Refresh those assets with:
+
+```bash
+cd /Users/avinash/Desktop/process-monitoring-agent-repo/agent/go-core
+bash scripts/build-release-bundles.sh
+```
+
+Optional signing inputs for release builds:
+
+- `HOSTLENS_MAC_BINARY_IDENTITY`
+- `HOSTLENS_MAC_INSTALLER_IDENTITY`
+- `HOSTLENS_MAC_NOTARY_PROFILE`
+- `HOSTLENS_WINDOWS_SIGNTOOL`
+- `HOSTLENS_WINDOWS_SIGNING_CERT_SHA1`
+- `HOSTLENS_WINDOWS_SIGNING_CERT_NAME`
+- `HOSTLENS_WINDOWS_PFX_PATH`
+- `HOSTLENS_WINDOWS_PFX_PASSWORD`
+- `HOSTLENS_WINDOWS_TIMESTAMP_URL`
+
+The release manifest at `/downloads/release-manifest.json` now records whether each artifact is signed or notarized in the current environment.
+
+## Docker
+
+This repo includes a production-oriented Docker setup.
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+- frontend: [http://127.0.0.1:3001](http://127.0.0.1:3001) in the current local setup
+- backend: [http://127.0.0.1:8001/api/v1/health/](http://127.0.0.1:8001/api/v1/health/) in the current local setup
+- host-health background monitor
+- postgres
+- redis
+
+The frontend proxies `/api/v1/*` requests to the backend using `PROCESS_MONITOR_API_ORIGIN`.
+
+## API
+
+- `POST /api/v1/process-snapshots/`
+- `GET /api/v1/process-snapshots/latest/?agent_id=<device>`
+- `GET /api/v1/process-snapshots/history/?agent_id=<device>&limit=12`
+- `POST /api/v1/mobile/heartbeat/`
+- `GET /api/v1/hosts/`
+- `GET /api/v1/fleet/summary/`
+- `POST /api/v1/hosts/rotate-key/`
+- `GET /api/v1/health/`
+- `GET /api/v1/alerts/`
+- `GET /api/v1/alerts/<alert_id>/`
+- `POST /api/v1/alerts/<alert_id>/actions/`
+- `GET /api/v1/alerts/rules/`
+- `PUT /api/v1/alerts/rules/`
+- `GET /api/v1/alerts/notifications/preferences/`
+- `PUT /api/v1/alerts/notifications/preferences/`
+- `GET /api/v1/alerts/notifications/deliveries/`
+- `GET /api/v1/checks/`
+- `POST /api/v1/checks/`
+- `PUT /api/v1/checks/<check_id>/`
+- `POST /api/v1/checks/<check_id>/run/`
+- `GET /api/v1/checks/results/`
+- `GET /api/v1/agent/actions/next/`
+- `POST /api/v1/actions/`
+- `POST /api/v1/agent/actions/<action_id>/result/`
+- `POST /api/v1/auth/billing/checkout/`
+- `POST /api/v1/auth/billing/portal/`
+- `POST /api/v1/auth/billing/webhook/`
+
+## Quality Gates
+
+Backend tests:
+
+```bash
+cd /Users/avinash/Desktop/process-monitoring-agent-repo/backend
+python manage.py test
+```
+
+Frontend production build:
+
+```bash
+cd /Users/avinash/Desktop/process-monitoring-agent-repo/frontend/process-monitor
+npm run build
+```
+
+Go core agent build:
+
+```bash
+cd /Users/avinash/Desktop/process-monitoring-agent-repo/agent/go-core
+go mod tidy
+go build ./cmd/hostlens-agent
+```
 
 ## Notes
 
-- The agent can be run on Windows, macOS, or Linux, but EXE build is for Windows only.  
-- The project uses per-host API keys for security, rotating keys is possible via admin API.  
-- For production, configure a real database (PostgreSQL recommended), proper `ALLOWED_HOSTS`, and secure environment variables.  
-- WebSockets require Redis or use the in-memory channel layer (not recommended for production).
-
----
-
-## License
-
-MIT License
-
----
-
-## Contact
-
-For questions, contact Avinash Anshu.
+- `agent/config.ini` is intentionally checked in with a placeholder key. Do not store real keys in git.
+- the Go core agent is now the primary desktop and server collector
+- Android direction is documented in [mobile/android/README.md](/Users/avinash/Desktop/process-monitoring-agent-repo/mobile/android/README.md)
+- iPhone direction is documented in [mobile/ios/README.md](/Users/avinash/Desktop/process-monitoring-agent-repo/mobile/ios/README.md)
+- The current MVP is responsive-web-first and polling-based. WebSocket support remains available in the backend but is not required for the first production release.
+- Deep collector helper projects live in [agent/deep-collectors/README.md](/Users/avinash/Desktop/process-monitoring-agent-repo/agent/deep-collectors/README.md).
+- The mobile collector app now posts signed heartbeats through `POST /api/v1/mobile/heartbeat/`.

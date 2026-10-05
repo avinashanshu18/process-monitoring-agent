@@ -1,67 +1,51 @@
-// "use client";
-
-// import { Sidebar } from "./sidebar";
-// import { TopBar } from "./topbar";
-// import { useState } from "react";
-
-// export function LayoutWrapper({ children }: { children: React.ReactNode }) {
-//   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-//   return (
-//     <div className="min-h-screen bg-black">
-//       {/* Grid background */}
-//       <div className="fixed inset-0 opacity-[0.03] pointer-events-none">
-//         <div 
-//           className="absolute inset-0" 
-//           style={{
-//             backgroundImage: "linear-gradient(rgba(59, 130, 246, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.5) 1px, transparent 1px)",
-//             backgroundSize: "60px 60px"
-//           }}
-//         />
-//       </div>
-
-//       <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-//       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
-//       <main className="lg:ml-64 pt-20 px-4 sm:px-6 lg:px-8 pb-12">
-//         {children}
-//       </main>
-//     </div>
-//   );
-// }
-
-
 "use client";
+
+import { useState } from "react";
 
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./topbar";
-import { useState } from "react";
 
-export function LayoutWrapper({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export function LayoutWrapper({
+  children,
+  title,
+  description,
+}: {
+  children: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+
+  function handleSidebarToggle() {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      setDesktopSidebarOpen((value) => !value);
+      return;
+    }
+
+    setMobileSidebarOpen((value) => !value);
+  }
 
   return (
-    <div className="min-h-screen bg-black">
-      {/* Grid background */}
-      <div className="fixed inset-0 opacity-[0.03] pointer-events-none">
-        <div 
-          className="absolute inset-0" 
-          style={{
-            backgroundImage: "linear-gradient(rgba(59, 130, 246, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.5) 1px, transparent 1px)",
-            backgroundSize: "60px 60px"
-          }}
+    <div className="min-h-screen bg-transparent">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top,_rgba(119,224,195,0.14),_transparent_22%),radial-gradient(circle_at_bottom_right,_rgba(103,125,255,0.1),_transparent_24%)]" />
+      <Sidebar
+        isMobileOpen={mobileSidebarOpen}
+        desktopOpen={desktopSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
+        onToggleDesktop={() => setDesktopSidebarOpen((value) => !value)}
+      />
+      <div className={desktopSidebarOpen ? "lg:pl-[320px]" : "lg:pl-0"}>
+        <TopBar
+          onMenuClick={handleSidebarToggle}
+          title={title}
+          description={description}
+          desktopSidebarOpen={desktopSidebarOpen}
         />
+        <main className="relative z-10 px-4 pb-12 pt-24 sm:px-5 sm:pb-14 sm:pt-28 lg:px-8">
+          <div className="mx-auto max-w-[1400px]">{children}</div>
+        </main>
       </div>
-
-      {/* Gradient Overlay */}
-      <div className="fixed inset-0 bg-gradient-to-b from-transparent via-transparent to-blue-950/10 pointer-events-none" />
-
-      <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
-      <main className="relative z-10 lg:ml-64 pt-20 px-4 sm:px-6 lg:px-8 pb-12">
-        {children}
-      </main>
     </div>
   );
 }

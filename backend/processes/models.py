@@ -1,534 +1,513 @@
-# from django.db import models
-# import secrets
-
-# class Host(models.Model):
-#     hostname = models.CharField(max_length=255, unique=True)
-#     api_key = models.CharField(max_length=64, blank=True, null=True)
-
-#     def generate_api_key(self):
-#         self.api_key = secrets.token_hex(16)
-#         self.save()
-
-#     def __str__(self):
-#         return self.hostname
-
-
-# class Snapshot(models.Model):
-#     host = models.ForeignKey(Host, on_delete=models.CASCADE, related_name="snapshots")
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     class Meta:
-#         ordering = ["-created_at"]
-
-
-# class Process(models.Model):
-#     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE, related_name="processes")
-#     pid = models.IntegerField()
-#     ppid = models.IntegerField(null=True, blank=True)
-#     name = models.CharField(max_length=512)
-#     cpu_percent = models.FloatField(null=True, blank=True)
-#     memory_mb = models.FloatField(null=True, blank=True)
-
-
-#     class Meta:
-#         indexes = [
-#             models.Index(fields=["snapshot"]),
-#             models.Index(fields=["pid", "ppid"]),
-#         ]
-
-# class Task(models.Model):
-#     name = models.CharField(max_length=512)
-
-
-
-
-
-
-"""
-Enterprise-Grade Models for Process Monitoring
-Includes: Auditing, Soft Deletes, Optimized Queries, Security
-"""
+from django.conf import settings
 from django.db import models
-from django.contrib.auth.models import User
-from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
-from django.db.models import Q, Avg, Max, Min
 import secrets
 import uuid
 
 
-# ============================================================================
-# BASE MODEL (Abstract base for all models)
-# ============================================================================
-
-class TimeStampedModel(models.Model):
-    """
-    Abstract base model with timestamp fields
-    """
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        abstract = True
-
-
-class SoftDeleteModel(models.Model):
-    """
-    Abstract base model for soft delete functionality
-    """
-    is_deleted = models.BooleanField(default=False, db_index=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-    
-    class Meta:
-        abstract = True
-    
-    def soft_delete(self):
-        """Soft delete the object"""
-        self.is_deleted = True
-        self.deleted_at = timezone.now()
-        self.save()
-    
-    def restore(self):
-        """Restore soft deleted object"""
-        self.is_deleted = False
-        self.deleted_at = None
-        self.save()
-
-
-# ============================================================================
-# HOST MODELS
-# ============================================================================
-
-class Host(TimeStampedModel, SoftDeleteModel):
-    """
-    Represents a monitored host/device
-    """
+class Host(models.Model):
     class HostStatus(models.TextChoices):
-        ONLINE = 'online', 'Online'
-        OFFLINE = 'offline', 'Offline'
-        WARNING = 'warning', 'Warning'
-        CRITICAL = 'critical', 'Critical'
-    
-    # Identification
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    hostname = models.CharField(max_length=255, unique=True, db_index=True)
-    display_name = models.CharField(max_length=255, blank=True, null=True)
-    
-    # Authentication
-    api_key = models.CharField(max_length=64, unique=True, db_index=True)
-    
-    # Host Information
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
-    os_name = models.CharField(max_length=100, blank=True, null=True)
-    os_version = models.CharField(max_length=100, blank=True, null=True)
-    architecture = models.CharField(max_length=50, blank=True, null=True)
-    
-    # Hardware Info
-    cpu_cores = models.IntegerField(null=True, blank=True)
-    total_memory_gb = models.FloatField(null=True, blank=True)
+        ONLINE = "online", "Online"
+        OFFLINE = "offline", "Offline"
+        WARNING = "warning", "Warning"
+
+    agent_id = models.CharField(max_length=64, unique=True, blank=True, null=True)
+    hostname = models.CharField(max_length=255, db_index=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="owned_hosts",
+        null=True,
+        blank=True,
+    )
+    api_key = models.CharField(max_length=64, blank=True, null=True)
+    display_name = models.CharField(max_length=255, blank=True)
+    device_type = models.CharField(max_length=32, blank=True)
+    os_name = models.CharField(max_length=100, blank=True)
+    os_version = models.CharField(max_length=100, blank=True)
+    architecture = models.CharField(max_length=50, blank=True)
+    primary_ip = models.CharField(max_length=128, blank=True)
+    agent_version = models.CharField(max_length=32, blank=True)
+    cpu_count = models.IntegerField(null=True, blank=True)
+    total_memory_mb = models.FloatField(null=True, blank=True)
     total_disk_gb = models.FloatField(null=True, blank=True)
-    
-    # Status & Monitoring
+    risk_score = models.IntegerField(default=0)
+    latest_alert_level = models.CharField(max_length=16, blank=True)
     status = models.CharField(
         max_length=20,
         choices=HostStatus.choices,
         default=HostStatus.OFFLINE,
-        db_index=True
     )
-    last_seen = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
     monitoring_enabled = models.BooleanField(default=True)
-    
-    # Metadata
-    tags = models.JSONField(default=list, blank=True)
-    metadata = models.JSONField(default=dict, blank=True)
-    notes = models.TextField(blank=True, null=True)
-    
-    # Ownership
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='owned_hosts'
-    )
-    workspace = models.ForeignKey(
-        'workspaces.Workspace',
-        on_delete=models.CASCADE,
-        related_name='hosts',
-        null=True,
-        blank=True
-    )
-    
+
     class Meta:
-        ordering = ['-last_seen', 'hostname']
-        indexes = [
-            models.Index(fields=['hostname', 'status']),
-            models.Index(fields=['last_seen', 'monitoring_enabled']),
-            models.Index(fields=['workspace', 'is_deleted']),
-        ]
-        verbose_name = 'Host'
-        verbose_name_plural = 'Hosts'
-    
+        ordering = ["hostname"]
+
     def __str__(self):
-        return f"{self.display_name or self.hostname} ({self.status})"
-    
+        return self.display_name or self.hostname
+
     def save(self, *args, **kwargs):
-        if not self.api_key:
-            self.generate_api_key()
         if not self.display_name:
             self.display_name = self.hostname
         super().save(*args, **kwargs)
-    
+
     def generate_api_key(self):
-        """Generate secure API key"""
         self.api_key = secrets.token_hex(32)
-    
+
     def mark_online(self):
-        """Mark host as online"""
         self.status = self.HostStatus.ONLINE
         self.last_seen = timezone.now()
-        self.save(update_fields=['status', 'last_seen'])
-    
-    def mark_offline(self):
-        """Mark host as offline"""
-        self.status = self.HostStatus.OFFLINE
-        self.save(update_fields=['status'])
-    
+
     def get_latest_snapshot(self):
-        """Get most recent snapshot"""
-        return self.snapshots.filter(is_deleted=False).first()
-    
-    def get_health_score(self):
-        """Calculate health score based on latest metrics"""
-        latest = self.get_latest_snapshot()
-        if not latest:
-            return 0
-        
-        # Simple health calculation
-        cpu_score = 100 - (latest.cpu_percent or 0)
-        memory_score = 100 - (latest.memory_percent or 0)
-        disk_score = 100 - (latest.disk_percent or 0)
-        
-        return round((cpu_score + memory_score + disk_score) / 3, 2)
+        return self.snapshots.order_by("-created_at").first()
+
+    @property
+    def is_online(self):
+        if not self.last_seen:
+            return False
+        return (
+            timezone.now() - self.last_seen
+        ).total_seconds() < settings.HOSTLENS_OFFLINE_CRITICAL_SECONDS
 
 
-# ============================================================================
-# SNAPSHOT MODELS
-# ============================================================================
-
-class Snapshot(TimeStampedModel, SoftDeleteModel):
-    """
-    Point-in-time snapshot of system metrics
-    """
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    host = models.ForeignKey(
-        Host,
-        on_delete=models.CASCADE,
-        related_name='snapshots'
-    )
-    
-    # System Metrics
-    cpu_percent = models.FloatField(
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        null=True,
-        blank=True
-    )
-    memory_percent = models.FloatField(
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        null=True,
-        blank=True
-    )
-    memory_used_gb = models.FloatField(null=True, blank=True)
-    memory_available_gb = models.FloatField(null=True, blank=True)
-    
-    disk_percent = models.FloatField(
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        null=True,
-        blank=True
-    )
-    disk_used_gb = models.FloatField(null=True, blank=True)
-    disk_free_gb = models.FloatField(null=True, blank=True)
-    
-    # Network Metrics
+class Snapshot(models.Model):
+    host = models.ForeignKey(Host, on_delete=models.CASCADE, related_name="snapshots")
+    created_at = models.DateTimeField(auto_now_add=True)
+    cpu_percent = models.FloatField(null=True, blank=True)
+    memory_percent = models.FloatField(null=True, blank=True)
+    disk_percent = models.FloatField(null=True, blank=True)
     network_sent_mb = models.FloatField(null=True, blank=True)
     network_recv_mb = models.FloatField(null=True, blank=True)
-    network_connections = models.IntegerField(null=True, blank=True)
-    
-    # Load Average
-    load_avg_1min = models.FloatField(null=True, blank=True)
-    load_avg_5min = models.FloatField(null=True, blank=True)
-    load_avg_15min = models.FloatField(null=True, blank=True)
-    
-    # Process Count
-    total_processes = models.IntegerField(default=0)
-    running_processes = models.IntegerField(default=0)
-    sleeping_processes = models.IntegerField(default=0)
-    
-    # Uptime
+    load_one = models.FloatField(null=True, blank=True)
+    load_five = models.FloatField(null=True, blank=True)
+    load_fifteen = models.FloatField(null=True, blank=True)
     uptime_seconds = models.BigIntegerField(null=True, blank=True)
-    boot_time = models.DateTimeField(null=True, blank=True)
-    
-    # Additional Metrics
-    swap_percent = models.FloatField(
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        null=True,
-        blank=True
-    )
-    temperature_celsius = models.FloatField(null=True, blank=True)
-    
-    # Metadata
-    snapshot_metadata = models.JSONField(default=dict, blank=True)
-    
+    active_user_count = models.IntegerField(default=0)
+    listening_ports = models.JSONField(default=list, blank=True)
+    network_connections = models.JSONField(default=list, blank=True)
+    network_events = models.JSONField(default=list, blank=True)
+    dns_events = models.JSONField(default=list, blank=True)
+    startup_items = models.JSONField(default=list, blank=True)
+    service_inventory = models.JSONField(default=list, blank=True)
+    software_inventory = models.JSONField(default=list, blank=True)
+    user_sessions = models.JSONField(default=list, blank=True)
+    file_integrity_items = models.JSONField(default=list, blank=True)
+    file_events = models.JSONField(default=list, blank=True)
+    auth_events = models.JSONField(default=list, blank=True)
+    process_events = models.JSONField(default=list, blank=True)
+    security_posture = models.JSONField(default=dict, blank=True)
+    collector_sources = models.JSONField(default=list, blank=True)
+    total_processes = models.IntegerField(default=0)
+
     class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['host', '-created_at']),
-            models.Index(fields=['created_at', 'is_deleted']),
-            models.Index(fields=['host', 'cpu_percent']),
-        ]
-        verbose_name = 'Snapshot'
-        verbose_name_plural = 'Snapshots'
-    
+        ordering = ["-created_at"]
+
     def __str__(self):
-        return f"Snapshot for {self.host.hostname} at {self.created_at}"
-    
-    @property
-    def is_healthy(self):
-        """Check if system is healthy"""
-        return all([
-            (self.cpu_percent or 0) < 80,
-            (self.memory_percent or 0) < 85,
-            (self.disk_percent or 0) < 90,
-        ])
+        return f"{self.host.hostname} @ {self.created_at.isoformat()}"
 
 
-# ============================================================================
-# PROCESS MODELS
-# ============================================================================
-
-class Process(TimeStampedModel):
-    """
-    Individual process information within a snapshot
-    """
-    class ProcessStatus(models.TextChoices):
-        RUNNING = 'running', 'Running'
-        SLEEPING = 'sleeping', 'Sleeping'
-        STOPPED = 'stopped', 'Stopped'
-        ZOMBIE = 'zombie', 'Zombie'
-        DEAD = 'dead', 'Dead'
-    
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    snapshot = models.ForeignKey(
-        Snapshot,
-        on_delete=models.CASCADE,
-        related_name='processes'
-    )
-    
-    # Process Identification
-    pid = models.IntegerField(db_index=True)
-    ppid = models.IntegerField(null=True, blank=True, db_index=True)
-    name = models.CharField(max_length=512, db_index=True)
-    cmdline = models.TextField(blank=True, null=True)
-    exe = models.CharField(max_length=1024, blank=True, null=True)
-    
-    # Process Ownership
-    username = models.CharField(max_length=255, blank=True, null=True)
-    uid = models.IntegerField(null=True, blank=True)
-    gid = models.IntegerField(null=True, blank=True)
-    
-    # Resource Usage
-    cpu_percent = models.FloatField(
-        validators=[MinValueValidator(0)],
-        null=True,
-        blank=True,
-        db_index=True
-    )
-    memory_mb = models.FloatField(
-        validators=[MinValueValidator(0)],
-        null=True,
-        blank=True,
-        db_index=True
-    )
-    memory_percent = models.FloatField(
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        null=True,
-        blank=True
-    )
-    
-    # Process Details
-    status = models.CharField(
-        max_length=20,
-        choices=ProcessStatus.choices,
-        default=ProcessStatus.RUNNING
-    )
-    num_threads = models.IntegerField(null=True, blank=True)
-    num_fds = models.IntegerField(null=True, blank=True)  # File descriptors
-    
-    # Timing
-    create_time = models.DateTimeField(null=True, blank=True)
-    
-    # I/O Stats
-    io_read_mb = models.FloatField(null=True, blank=True)
-    io_write_mb = models.FloatField(null=True, blank=True)
-    
-    # Priority
-    nice = models.IntegerField(null=True, blank=True)
-    priority = models.IntegerField(null=True, blank=True)
-    
-    # Additional Info
-    process_metadata = models.JSONField(default=dict, blank=True)
-    
-    class Meta:
-        ordering = ['-cpu_percent', '-memory_mb']
-        indexes = [
-            models.Index(fields=['snapshot', 'pid']),
-            models.Index(fields=['pid', 'ppid']),
-            models.Index(fields=['name', 'snapshot']),
-            models.Index(fields=['-cpu_percent']),
-            models.Index(fields=['-memory_mb']),
-        ]
-        unique_together = [['snapshot', 'pid']]
-        verbose_name = 'Process'
-        verbose_name_plural = 'Processes'
-    
-    def __str__(self):
-        return f"{self.name} (PID: {self.pid})"
-    
-    def get_children(self):
-        """Get child processes"""
-        return Process.objects.filter(
-            snapshot=self.snapshot,
-            ppid=self.pid
-        )
-    
-    def get_parent(self):
-        """Get parent process"""
-        if self.ppid:
-            return Process.objects.filter(
-                snapshot=self.snapshot,
-                pid=self.ppid
-            ).first()
-        return None
-
-
-# ============================================================================
-# TASK MODELS (Background Jobs)
-# ============================================================================
-
-class Task(TimeStampedModel):
-    """
-    Background task tracking
-    """
-    class TaskStatus(models.TextChoices):
-        PENDING = 'pending', 'Pending'
-        RUNNING = 'running', 'Running'
-        SUCCESS = 'success', 'Success'
-        FAILED = 'failed', 'Failed'
-        RETRY = 'retry', 'Retry'
-        CANCELLED = 'cancelled', 'Cancelled'
-    
-    class TaskType(models.TextChoices):
-        SNAPSHOT = 'snapshot', 'Snapshot Collection'
-        ALERT = 'alert', 'Alert Processing'
-        REPORT = 'report', 'Report Generation'
-        CLEANUP = 'cleanup', 'Data Cleanup'
-        ANALYTICS = 'analytics', 'Analytics Processing'
-        BACKUP = 'backup', 'Backup'
-    
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    
-    # Task Identification
-    name = models.CharField(max_length=512, db_index=True)
-    task_type = models.CharField(
-        max_length=50,
-        choices=TaskType.choices,
-        default=TaskType.SNAPSHOT,
-        db_index=True
-    )
-    celery_task_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
-    
-    # Status
-    status = models.CharField(
-        max_length=20,
-        choices=TaskStatus.choices,
-        default=TaskStatus.PENDING,
-        db_index=True
-    )
-    
-    # Timing
+class Process(models.Model):
+    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE, related_name="processes")
+    pid = models.IntegerField()
+    ppid = models.IntegerField(null=True, blank=True)
+    name = models.CharField(max_length=512)
+    cpu_percent = models.FloatField(null=True, blank=True)
+    memory_mb = models.FloatField(null=True, blank=True)
+    status = models.CharField(max_length=32, blank=True)
+    username = models.CharField(max_length=255, blank=True)
+    cmdline = models.TextField(blank=True)
+    exe_path = models.TextField(blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-    
-    # Related Objects
-    host = models.ForeignKey(
-        Host,
+
+    class Meta:
+        ordering = ["-cpu_percent", "-memory_mb", "name"]
+        indexes = [
+            models.Index(fields=["snapshot"]),
+            models.Index(fields=["pid", "ppid"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.pid})"
+
+
+class AlertRuleSettings(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='tasks',
-        null=True,
-        blank=True
+        related_name="alert_rule_settings",
     )
-    user = models.ForeignKey(
-        User,
+    cpu_warning_threshold = models.FloatField(default=82)
+    cpu_critical_threshold = models.FloatField(default=95)
+    memory_warning_threshold = models.FloatField(default=86)
+    memory_critical_threshold = models.FloatField(default=95)
+    disk_warning_threshold = models.FloatField(default=88)
+    disk_critical_threshold = models.FloatField(default=96)
+    process_cpu_warning_threshold = models.FloatField(default=60)
+    process_memory_warning_mb = models.FloatField(default=1024)
+    listening_ports_info_threshold = models.PositiveIntegerField(default=10)
+    multiple_users_threshold = models.PositiveIntegerField(default=2)
+    process_spike_min_delta = models.PositiveIntegerField(default=20)
+    process_spike_percent_threshold = models.FloatField(default=25)
+    watchlist_enabled = models.BooleanField(default=True)
+    new_process_tracking_enabled = models.BooleanField(default=True)
+    new_software_tracking_enabled = models.BooleanField(default=True)
+    unsigned_software_alert_enabled = models.BooleanField(default=True)
+    startup_drift_tracking_enabled = models.BooleanField(default=True)
+    remote_session_tracking_enabled = models.BooleanField(default=True)
+    file_integrity_tracking_enabled = models.BooleanField(default=True)
+    auth_event_tracking_enabled = models.BooleanField(default=True)
+    policy_engine_enabled = models.BooleanField(default=True)
+    mobile_compliance_tracking_enabled = models.BooleanField(default=True)
+    vulnerability_tracking_enabled = models.BooleanField(default=True)
+    minimum_mobile_battery_percent = models.PositiveIntegerField(default=20)
+    minimum_mobile_os_version = models.CharField(max_length=32, blank=True, default="17")
+    muted_alert_auto_resolve = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["user__username"]
+
+    def __str__(self):
+        return f"{self.user.username} alert rules"
+
+
+class Alert(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        ACKNOWLEDGED = "acknowledged", "Acknowledged"
+        MUTED = "muted", "Muted"
+        RESOLVED = "resolved", "Resolved"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    host = models.ForeignKey(Host, on_delete=models.CASCADE, related_name="alerts")
+    latest_snapshot = models.ForeignKey(
+        Snapshot,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='tasks'
+        related_name="alerts",
     )
-    
-    # Results & Errors
-    result = models.JSONField(default=dict, blank=True)
-    error_message = models.TextField(blank=True, null=True)
-    stack_trace = models.TextField(blank=True, null=True)
-    
-    # Retry Logic
-    retry_count = models.IntegerField(default=0)
-    max_retries = models.IntegerField(default=3)
-    
-    # Metadata
-    task_args = models.JSONField(default=dict, blank=True)
-    task_kwargs = models.JSONField(default=dict, blank=True)
+    fingerprint = models.CharField(max_length=255, db_index=True)
+    level = models.CharField(max_length=16, db_index=True)
+    type = models.CharField(max_length=64, db_index=True)
+    message = models.TextField()
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.OPEN,
+        db_index=True,
+    )
+    note = models.TextField(blank=True)
     metadata = models.JSONField(default=dict, blank=True)
-    
+    first_seen_at = models.DateTimeField(default=timezone.now)
+    last_seen_at = models.DateTimeField(default=timezone.now)
+    occurrence_count = models.PositiveIntegerField(default=1)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    acknowledged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="acknowledged_alerts",
+    )
+    muted_at = models.DateTimeField(null=True, blank=True)
+    muted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="muted_alerts",
+    )
+    muted_until = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resolved_alerts",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-last_seen_at", "-created_at"]
         indexes = [
-            models.Index(fields=['status', '-created_at']),
-            models.Index(fields=['host', 'task_type']),
-            models.Index(fields=['celery_task_id']),
+            models.Index(fields=["host", "status"]),
+            models.Index(fields=["host", "level"]),
+            models.Index(fields=["host", "type"]),
+            models.Index(fields=["status", "level"]),
         ]
-        verbose_name = 'Task'
-        verbose_name_plural = 'Tasks'
-    
+
     def __str__(self):
-        return f"{self.name} - {self.status}"
-    
+        return f"{self.host.hostname} {self.type} {self.level}"
+
     @property
-    def duration_seconds(self):
-        """Calculate task duration"""
-        if self.started_at and self.completed_at:
-            return (self.completed_at - self.started_at).total_seconds()
-        return None
-    
-    def mark_running(self):
-        """Mark task as running"""
-        self.status = self.TaskStatus.RUNNING
-        self.started_at = timezone.now()
-        self.save(update_fields=['status', 'started_at'])
-    
-    def mark_success(self, result=None):
-        """Mark task as successful"""
-        self.status = self.TaskStatus.SUCCESS
-        self.completed_at = timezone.now()
-        if result:
-            self.result = result
-        self.save(update_fields=['status', 'completed_at', 'result'])
-    
-    def mark_failed(self, error_message=None, stack_trace=None):
-        """Mark task as failed"""
-        self.status = self.TaskStatus.FAILED
-        self.completed_at = timezone.now()
-        if error_message:
-            self.error_message = error_message
-        if stack_trace:
-            self.stack_trace = stack_trace
-        self.save(update_fields=['status', 'completed_at', 'error_message', 'stack_trace'])
+    def is_active(self):
+        return self.status in {
+            self.Status.OPEN,
+            self.Status.ACKNOWLEDGED,
+            self.Status.MUTED,
+        }
+
+
+class AlertAuditLog(models.Model):
+    alert = models.ForeignKey(Alert, on_delete=models.CASCADE, related_name="audit_logs")
+    action = models.CharField(max_length=32)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="alert_audit_logs",
+    )
+    previous_status = models.CharField(max_length=16, blank=True)
+    next_status = models.CharField(max_length=16, blank=True)
+    note = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class HostEvent(models.Model):
+    host = models.ForeignKey(Host, on_delete=models.CASCADE, related_name="events")
+    snapshot = models.ForeignKey(
+        Snapshot,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="events",
+    )
+    category = models.CharField(max_length=32, db_index=True)
+    kind = models.CharField(max_length=64, db_index=True)
+    severity = models.CharField(max_length=16, db_index=True)
+    title = models.CharField(max_length=255)
+    subtitle = models.TextField(blank=True)
+    source = models.CharField(max_length=64, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    occurred_at = models.DateTimeField(default=timezone.now, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-occurred_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["host", "occurred_at"]),
+            models.Index(fields=["host", "category"]),
+            models.Index(fields=["host", "kind"]),
+        ]
+
+    def __str__(self):
+        return f"{self.host.hostname} {self.kind} {self.severity}"
+
+
+class SavedCheck(models.Model):
+    class Category(models.TextChoices):
+        POLICY = "policy", "Policy"
+        MOBILE = "mobile", "Mobile"
+        VULNERABILITY = "vulnerability", "Vulnerability"
+        CUSTOM = "custom", "Custom"
+
+    class Severity(models.TextChoices):
+        INFO = "info", "Info"
+        WARNING = "warning", "Warning"
+        CRITICAL = "critical", "Critical"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="saved_checks",
+    )
+    name = models.CharField(max_length=120)
+    slug = models.SlugField(max_length=120)
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=24, choices=Category.choices, db_index=True)
+    severity = models.CharField(max_length=16, choices=Severity.choices, default=Severity.WARNING)
+    enabled = models.BooleanField(default=True)
+    builtin = models.BooleanField(default=False)
+    evaluator = models.CharField(max_length=64, db_index=True)
+    config = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["category", "name"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "slug"], name="unique_saved_check_slug_per_user")
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} {self.slug}"
+
+
+class SavedCheckResult(models.Model):
+    class Status(models.TextChoices):
+        PASS = "pass", "Pass"
+        WARN = "warn", "Warn"
+        FAIL = "fail", "Fail"
+        UNKNOWN = "unknown", "Unknown"
+
+    saved_check = models.ForeignKey(
+        SavedCheck,
+        on_delete=models.CASCADE,
+        related_name="results",
+    )
+    host = models.ForeignKey(Host, on_delete=models.CASCADE, related_name="check_results")
+    snapshot = models.ForeignKey(
+        Snapshot,
+        on_delete=models.CASCADE,
+        related_name="check_results",
+        null=True,
+        blank=True,
+    )
+    status = models.CharField(max_length=16, choices=Status.choices, db_index=True)
+    summary = models.CharField(max_length=255)
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["host", "status"]),
+            models.Index(fields=["saved_check", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.host.hostname} {self.saved_check.slug} {self.status}"
+
+
+class AgentAction(models.Model):
+    class Kind(models.TextChoices):
+        REFRESH_SNAPSHOT = "refresh_snapshot", "Refresh snapshot"
+        TERMINATE_PROCESS = "terminate_process", "Terminate process"
+        COLLECT_DIAGNOSTICS = "collect_diagnostics", "Collect diagnostics"
+        LIVE_QUERY = "live_query", "Live query"
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        IN_PROGRESS = "in_progress", "In progress"
+        SUCCEEDED = "succeeded", "Succeeded"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    host = models.ForeignKey(Host, on_delete=models.CASCADE, related_name="agent_actions")
+    snapshot = models.ForeignKey(
+        Snapshot,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agent_actions",
+    )
+    alert = models.ForeignKey(
+        Alert,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agent_actions",
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="requested_agent_actions",
+    )
+    kind = models.CharField(max_length=32, choices=Kind.choices, db_index=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.QUEUED,
+        db_index=True,
+    )
+    note = models.TextField(blank=True)
+    parameters = models.JSONField(default=dict, blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["host", "status"]),
+            models.Index(fields=["kind", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.host.hostname} {self.kind} {self.status}"
+
+
+class NotificationPreference(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notification_preference",
+    )
+    email_enabled = models.BooleanField(default=True)
+    email_address = models.EmailField(blank=True)
+    slack_enabled = models.BooleanField(default=False)
+    slack_webhook_url = models.URLField(blank=True)
+    webhook_enabled = models.BooleanField(default=False)
+    webhook_url = models.URLField(blank=True)
+    notify_info = models.BooleanField(default=False)
+    notify_warning = models.BooleanField(default=True)
+    notify_critical = models.BooleanField(default=True)
+    notify_offline = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["user__username"]
+
+    def __str__(self):
+        return f"{self.user.username} notification preferences"
+
+    @property
+    def effective_email_address(self):
+        return self.email_address or self.user.email
+
+
+class NotificationDelivery(models.Model):
+    class Channel(models.TextChoices):
+        EMAIL = "email", "Email"
+        SLACK = "slack", "Slack"
+        WEBHOOK = "webhook", "Webhook"
+
+    class Status(models.TextChoices):
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+        SKIPPED = "skipped", "Skipped"
+
+    alert = models.ForeignKey(
+        Alert,
+        on_delete=models.CASCADE,
+        related_name="notification_deliveries",
+        null=True,
+        blank=True,
+    )
+    host = models.ForeignKey(Host, on_delete=models.CASCADE, related_name="notification_deliveries")
+    channel = models.CharField(max_length=16, choices=Channel.choices)
+    event_type = models.CharField(max_length=64, db_index=True)
+    destination = models.CharField(max_length=500, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, db_index=True)
+    response_code = models.IntegerField(null=True, blank=True)
+    response_excerpt = models.TextField(blank=True)
+    error_message = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["host", "channel"]),
+            models.Index(fields=["event_type", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.host.hostname} {self.channel} {self.status}"

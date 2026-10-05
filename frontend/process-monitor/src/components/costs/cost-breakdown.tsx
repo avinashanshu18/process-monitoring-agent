@@ -1,12 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { PieChart, Server, Database, Network, HardDrive, Shield } from "lucide-react";
+
+type CostBreakdownItem = {
+  name: string;
+  cost: number;
+  percentage: number;
+  color: string;
+  icon?: LucideIcon;
+};
 
 export function CostBreakdown() {
   const [view, setView] = useState<"service" | "environment" | "team">("service");
 
-  const serviceBreakdown = [
+  const serviceBreakdown: CostBreakdownItem[] = [
     { name: "Compute (EC2)", cost: 1856, percentage: 43.8, icon: Server, color: "from-blue-500 to-cyan-500" },
     { name: "Database (RDS)", cost: 892, percentage: 21.1, icon: Database, color: "from-purple-500 to-pink-500" },
     { name: "Storage (S3)", cost: 645, percentage: 15.2, icon: HardDrive, color: "from-green-500 to-teal-500" },
@@ -14,13 +23,13 @@ export function CostBreakdown() {
     { name: "Security", cost: 318, percentage: 7.5, icon: Shield, color: "from-red-500 to-pink-500" },
   ];
 
-  const environmentBreakdown = [
+  const environmentBreakdown: CostBreakdownItem[] = [
     { name: "Production", cost: 2856, percentage: 67.5, color: "bg-blue-500" },
     { name: "Staging", cost: 892, percentage: 21.1, color: "bg-purple-500" },
     { name: "Development", cost: 486, percentage: 11.4, color: "bg-green-500" },
   ];
 
-  const teamBreakdown = [
+  const teamBreakdown: CostBreakdownItem[] = [
     { name: "Engineering", cost: 1956, percentage: 46.2, color: "bg-cyan-500" },
     { name: "Data Science", cost: 1234, percentage: 29.1, color: "bg-purple-500" },
     { name: "DevOps", cost: 724, percentage: 17.1, color: "bg-orange-500" },
@@ -117,7 +126,7 @@ export function CostBreakdown() {
         {/* Legend */}
         <div className="space-y-2">
           {currentData.map((item, index) => {
-            const Icon = 'icon' in item ? item.icon : null;
+            const Icon = item.icon;
             return (
               <div
                 key={index}
@@ -126,11 +135,11 @@ export function CostBreakdown() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     {Icon ? (
-                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${'color' in item ? item.color : 'from-gray-500 to-gray-600'} flex items-center justify-center`}>
+                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
                         <Icon className="w-4 h-4 text-white" />
                       </div>
                     ) : (
-                      <div className={`w-3 h-3 rounded-full ${'color' in item ? item.color : 'bg-gray-500'}`} />
+                      <div className={`w-3 h-3 rounded-full ${item.color}`} />
                     )}
                     <span className="text-sm font-medium text-white">{item.name}</span>
                   </div>
@@ -140,7 +149,7 @@ export function CostBreakdown() {
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
                     <div
-                      className={`h-full ${Icon ? `bg-gradient-to-r ${'color' in item ? item.color : 'from-gray-500 to-gray-600'}` : ('color' in item ? item.color : 'bg-gray-500')} rounded-full transition-all`}
+                      className={`h-full ${Icon ? `bg-gradient-to-r ${item.color}` : item.color} rounded-full transition-all`}
                       style={{ width: `${item.percentage}%` }}
                     />
                   </div>

@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "HostLens Companion",
+    "slug": "hostlens-companion",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "bundleIdentifier": "com.hostlens.companion"
+    },
+    "android": {
+      "package": "com.hostlens.companion"
+    }
+  }
+}

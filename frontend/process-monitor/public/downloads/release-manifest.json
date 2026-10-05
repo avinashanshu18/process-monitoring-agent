@@ -1,0 +1,162 @@
+{
+  "version": "2026.04.02-0800",
+  "generated_at": "2026-04-02T08:00:58Z",
+  "artifacts": {
+    "macos_arm64": {
+      "filename": "hostlens-agent-darwin-arm64",
+      "label": "macOS Apple Silicon agent binary",
+      "kind": "agent",
+      "target": "darwin-arm64",
+      "sha256": "a3e88566822b029a6c1334aee0763ae0a49323f828d09c0e4719427fe61161f1",
+      "size_bytes": 6225336,
+      "url": "/downloads/hostlens-agent-darwin-arm64",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "macos_amd64": {
+      "filename": "hostlens-agent-darwin-amd64",
+      "label": "macOS Intel agent binary",
+      "kind": "agent",
+      "target": "darwin-amd64",
+      "sha256": "e5b6d0abd9a0c29d9786822d6ff3783a7c820a263b215aadeca361578a031bb6",
+      "size_bytes": 8600128,
+      "url": "/downloads/hostlens-agent-darwin-amd64",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "macos_universal": {
+      "filename": "hostlens-agent-darwin-universal",
+      "label": "macOS universal agent binary",
+      "kind": "agent",
+      "target": "darwin-universal",
+      "sha256": "19cb37912ef22087fad8924a262035c5e964fde1fa57c171222202d23a42ea2d",
+      "size_bytes": 14843320,
+      "url": "/downloads/hostlens-agent-darwin-universal",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "macos_pkg": {
+      "filename": "HostLens-macOS-Installer.pkg",
+      "label": "macOS installer package",
+      "kind": "package",
+      "target": "darwin-universal",
+      "sha256": "7f3534c939fc71af1601d752566f45fa5f058fa67c5ad54fb8fb246a212426ef",
+      "size_bytes": 7399366,
+      "url": "/downloads/HostLens-macOS-Installer.pkg",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "linux_amd64": {
+      "filename": "hostlens-agent-linux-amd64",
+      "label": "Linux amd64 agent binary",
+      "kind": "agent",
+      "target": "linux-amd64",
+      "sha256": "aecc0db4528e537dd56858df2722ee1453473978fbba4a8b8f23f33ee6090f21",
+      "size_bytes": 8573978,
+      "url": "/downloads/hostlens-agent-linux-amd64",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "windows_amd64": {
+      "filename": "hostlens-agent-windows-amd64.exe",
+      "label": "Windows amd64 agent binary",
+      "kind": "agent",
+      "target": "windows-amd64",
+      "sha256": "6d71939497ec3d5dfa205473a60bb5384db8c65cbc4d7a16f8be19d49ff656db",
+      "size_bytes": 8503808,
+      "url": "/downloads/hostlens-agent-windows-amd64.exe",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "windows_service": {
+      "filename": "hostlens-service-windows-amd64.exe",
+      "label": "Windows service wrapper",
+      "kind": "service",
+      "target": "windows-amd64",
+      "sha256": "5d2970f78d7ef0f476052dba9076ab9a87b35d26a44bfd46491e4aaaffb7ddae",
+      "size_bytes": 7731200,
+      "url": "/downloads/hostlens-service-windows-amd64.exe",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "macos_installer": {
+      "filename": "install-macos.sh",
+      "label": "macOS installer script",
+      "kind": "installer",
+      "target": "darwin",
+      "sha256": "843eb58aaaacefa491d12ff7df52a8da715a9ec8a472e173b9a754fa99ebf025",
+      "size_bytes": 1163,
+      "url": "/downloads/install-macos.sh",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "macos_control": {
+      "filename": "hostlensctl",
+      "label": "macOS HostLens control command",
+      "kind": "tool",
+      "target": "darwin",
+      "sha256": "ebc0d987ba16b4bfaaedea252ae5dde41952ced55b926a1ffe8269bb65b7ad3f",
+      "size_bytes": 2290,
+      "url": "/downloads/hostlensctl",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "linux_installer": {
+      "filename": "install-linux.sh",
+      "label": "Linux installer script",
+      "kind": "installer",
+      "target": "linux",
+      "sha256": "6fe9f2c44f94d275a97184ca2a989a67a13f5ebe41a85ccd2f1062f9b11253e2",
+      "size_bytes": 1013,
+      "url": "/downloads/install-linux.sh",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "windows_installer": {
+      "filename": "install-windows.ps1",
+      "label": "Windows installer script",
+      "kind": "installer",
+      "target": "windows",
+      "sha256": "722c902bddb3ba455b83ff9116e224f2533a4aaf1491eefbeb5b106023caaccc",
+      "size_bytes": 1484,
+      "url": "/downloads/install-windows.ps1",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "macos_launchd": {
+      "filename": "com.hostlens.agent.plist",
+      "label": "macOS launchd service template",
+      "kind": "template",
+      "target": "darwin",
+      "sha256": "efacae69cf6bd4c8d82ed569a0d0d8c619776123b7c19ed68862c5ef43b58ef7",
+      "size_bytes": 786,
+      "url": "/downloads/com.hostlens.agent.plist",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    },
+    "linux_systemd": {
+      "filename": "hostlens-agent.service",
+      "label": "Linux systemd service template",
+      "kind": "template",
+      "target": "linux",
+      "sha256": "1487328ea585061dead3fc663ba2985c4ce32905455e9d52acec1bf9e7a20861",
+      "size_bytes": 447,
+      "url": "/downloads/hostlens-agent.service",
+      "signed": false,
+      "notarized": false,
+      "signature_label": "Unsigned in this environment"
+    }
+  }
+}

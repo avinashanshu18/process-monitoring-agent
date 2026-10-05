@@ -9,8 +9,8 @@ Chart.register(...registerables);
 interface Process {
   pid: number;
   name: string;
-  cpu_percent?: number;
-  memory_mb?: number;
+  cpu_percent?: number | null;
+  memory_mb?: number | null;
 }
 
 interface ProcessChartsProps {

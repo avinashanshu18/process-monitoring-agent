@@ -1,0 +1,19 @@
+#!/usr/bin/env bpftrace
+
+tracepoint:sched:sched_process_exec
+{
+  printf("{\"source\":\"ebpf\",\"process_events\":[{\"pid\":%d,\"ppid\":%d,\"name\":\"%s\",\"event_type\":\"started\",\"occurred_at\":\"%llu\"}],\"collector_capabilities\":[{\"name\":\"ebpf\",\"layer\":\"kernel-bridge\",\"state\":\"active\",\"detail\":\"Kernel exec tracepoint attached.\"}]}\n",
+    pid, args->old_pid, comm, nsecs);
+}
+
+tracepoint:sched:sched_process_exit
+{
+  printf("{\"source\":\"ebpf\",\"process_events\":[{\"pid\":%d,\"name\":\"%s\",\"event_type\":\"exited\",\"occurred_at\":\"%llu\"}]}\n",
+    pid, comm, nsecs);
+}
+
+tracepoint:tcp:tcp_retransmit_skb
+{
+  printf("{\"source\":\"ebpf\",\"network_events\":[{\"process_name\":\"kernel-tcp\",\"protocol\":\"tcp\",\"event_type\":\"retransmit\",\"occurred_at\":\"%llu\",\"security_hint\":\"network-instability\"}]}\n",
+    nsecs);
+}

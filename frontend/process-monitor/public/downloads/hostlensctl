@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_SUPPORT_DIR="/Library/Application Support/HostLens"
+LOG_DIR="/Library/Logs/HostLens"
+CONFIG_PATH="$APP_SUPPORT_DIR/config.json"
+TEMPLATE_PATH="$APP_SUPPORT_DIR/config.template.json"
+AGENT_PATH="$APP_SUPPORT_DIR/hostlens-agent"
+PLIST_PATH="/Library/LaunchDaemons/com.hostlens.agent.plist"
+LABEL="system/com.hostlens.agent"
+
+require_root() {
+  if [[ ${EUID} -ne 0 ]]; then
+    echo "hostlensctl must run with sudo." >&2
+    exit 1
+  fi
+}
+
+ensure_layout() {
+  mkdir -p "$APP_SUPPORT_DIR" "$LOG_DIR"
+}
+
+stop_service() {
+  launchctl bootout system "$PLIST_PATH" >/dev/null 2>&1 || true
+}
+
+start_service() {
+  require_root
+  ensure_layout
+
+  if [[ ! -f "$CONFIG_PATH" ]]; then
+    echo "Config not found at $CONFIG_PATH" >&2
+    echo "Import your HostLens config first: sudo hostlensctl import-config <path>" >&2
+    exit 1
+  fi
+
+  stop_service
+  launchctl bootstrap system "$PLIST_PATH"
+  launchctl enable "$LABEL" >/dev/null 2>&1 || true
+  launchctl kickstart -k "$LABEL" >/dev/null 2>&1 || true
+  echo "HostLens agent started."
+}
+
+case "${1:-}" in
+  import-config)
+    require_root
+    ensure_layout
+    if [[ $# -lt 2 ]]; then
+      echo "usage: sudo hostlensctl import-config /path/to/hostlens-config.json" >&2
+      exit 1
+    fi
+    SOURCE_PATH=$2
+    if [[ ! -f "$SOURCE_PATH" ]]; then
+      echo "Config file not found: $SOURCE_PATH" >&2
+      exit 1
+    fi
+    plutil -lint "$SOURCE_PATH" >/dev/null
+    install -m 600 "$SOURCE_PATH" "$CONFIG_PATH"
+    chown root:wheel "$CONFIG_PATH"
+    start_service
+    echo "Config imported to $CONFIG_PATH"
+    ;;
+  start)
+    start_service
+    ;;
+  stop)
+    require_root
+    stop_service
+    echo "HostLens agent stopped."
+    ;;
+  restart)
+    require_root
+    stop_service
+    start_service
+    ;;
+  status)
+    launchctl print "$LABEL"
+    ;;
+  config-path)
+    echo "$CONFIG_PATH"
+    ;;
+  template-path)
+    echo "$TEMPLATE_PATH"
+    ;;
+  logs)
+    tail -n 80 "$LOG_DIR/agent.log"
+    ;;
+  *)
+    cat <<'EOF'
+HostLens macOS control
+
+Commands:
+  sudo hostlensctl import-config /path/to/hostlens-config.json
+  sudo hostlensctl start
+  sudo hostlensctl stop
+  sudo hostlensctl restart
+  sudo hostlensctl status
+  hostlensctl config-path
+  hostlensctl template-path
+  hostlensctl logs
+EOF
+    ;;
+esac

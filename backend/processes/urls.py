@@ -1,40 +1,56 @@
-# from django.urls import path
-# from .views import (
-#     IngestSnapshotView,
-#     LatestSnapshotView,
-#     HostsView,
-#     SnapshotListView,
-#     RotateHostKeyView
-# )
+from django.urls import path
 
-# urlpatterns = [
-#     path("process-snapshots/", IngestSnapshotView.as_view(), name="ingest"),
-#     path("process-snapshots/latest/", LatestSnapshotView.as_view(), name="latest"),
-#     path("hosts/", HostsView.as_view(), name="hosts"),
-#     path("hosts/rotate-key/", RotateHostKeyView.as_view(), name="rotate-key"),
-#     path("process-snapshots/history/", SnapshotListView.as_view(), name="history"),
-# ]
+from .views import (
+    AgentActionNextView,
+    AgentActionResultView,
+    AgentActionsView,
+    AlertActionView,
+    AlertDetailView,
+    AlertRuleSettingsView,
+    AlertsListView,
+    FleetSummaryView,
+    HealthView,
+    HostsView,
+    IngestSnapshotView,
+    InventoryTimelineView,
+    LatestSnapshotView,
+    MobileHeartbeatView,
+    NotificationDeliveryListView,
+    NotificationPreferenceView,
+    SavedCheckDetailView,
+    SavedCheckResultsView,
+    SavedCheckRunView,
+    SavedChecksView,
+    RotateHostKeyView,
+    SnapshotCompareView,
+    SnapshotListView,
+)
 
 
-
-"""
-URL Configuration for Processes App
-"""
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-
-from .views import HostViewSet, SnapshotViewSet, ProcessViewSet, TaskViewSet
-
-# Router for ViewSets
-router = DefaultRouter()
-router.register(r'hosts', HostViewSet, basename='host')
-router.register(r'snapshots', SnapshotViewSet, basename='snapshot')
-router.register(r'processes', ProcessViewSet, basename='process')
-router.register(r'tasks', TaskViewSet, basename='task')
-
-app_name = 'processes'
+app_name = "processes"
 
 urlpatterns = [
-    # ViewSet routes
-    path('', include(router.urls)),
+    path("health/", HealthView.as_view(), name="health"),
+    path("process-snapshots/", IngestSnapshotView.as_view(), name="ingest"),
+    path("process-snapshots/latest/", LatestSnapshotView.as_view(), name="latest"),
+    path("process-snapshots/history/", SnapshotListView.as_view(), name="history"),
+    path("process-snapshots/inventory-timeline/", InventoryTimelineView.as_view(), name="inventory-timeline"),
+    path("process-snapshots/compare/", SnapshotCompareView.as_view(), name="compare"),
+    path("mobile/heartbeat/", MobileHeartbeatView.as_view(), name="mobile-heartbeat"),
+    path("hosts/", HostsView.as_view(), name="hosts"),
+    path("fleet/summary/", FleetSummaryView.as_view(), name="fleet-summary"),
+    path("alerts/", AlertsListView.as_view(), name="alerts"),
+    path("alerts/rules/", AlertRuleSettingsView.as_view(), name="alert-rules"),
+    path("alerts/notifications/preferences/", NotificationPreferenceView.as_view(), name="notification-preferences"),
+    path("alerts/notifications/deliveries/", NotificationDeliveryListView.as_view(), name="notification-deliveries"),
+    path("alerts/<uuid:alert_id>/", AlertDetailView.as_view(), name="alert-detail"),
+    path("alerts/<uuid:alert_id>/actions/", AlertActionView.as_view(), name="alert-action"),
+    path("checks/", SavedChecksView.as_view(), name="checks"),
+    path("checks/results/", SavedCheckResultsView.as_view(), name="check-results"),
+    path("checks/<int:check_id>/", SavedCheckDetailView.as_view(), name="check-detail"),
+    path("checks/<int:check_id>/run/", SavedCheckRunView.as_view(), name="check-run"),
+    path("actions/", AgentActionsView.as_view(), name="actions"),
+    path("agent/actions/next/", AgentActionNextView.as_view(), name="agent-action-next"),
+    path("agent/actions/<uuid:action_id>/result/", AgentActionResultView.as_view(), name="agent-action-result"),
+    path("hosts/rotate-key/", RotateHostKeyView.as_view(), name="rotate-key"),
 ]

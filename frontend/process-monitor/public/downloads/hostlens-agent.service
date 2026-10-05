@@ -1,0 +1,19 @@
+[Unit]
+Description=HostLens device visibility agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/hostlens
+Environment=HOSTLENS_AGENT_CONFIG=/opt/hostlens/config.json
+ExecStart=/opt/hostlens/hostlens-agent
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/hostlens-agent.log
+StandardError=append:/var/log/hostlens-agent.log
+
+[Install]
+WantedBy=multi-user.target
